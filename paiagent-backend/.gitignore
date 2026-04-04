@@ -1,0 +1,6 @@
+# Maven 本地仓库
+**/maven-repository/
+**/target/
+*.jar
+*.pom
+*.sha1

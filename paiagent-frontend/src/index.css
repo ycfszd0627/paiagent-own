@@ -1,0 +1,185 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Core palette - Purple/Violet primary */
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 262 83% 68%;
+    --primary-muted: 262 40% 94%;
+
+    /* Backgrounds */
+    --background: 0 0% 100%;
+    --foreground: 224 71% 4%;
+    --canvas: 220 14% 96%;
+
+    /* Card & Popover */
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 71% 4%;
+
+    /* Sidebar */
+    --sidebar: 0 0% 99%;
+    --sidebar-foreground: 224 71% 4%;
+    --sidebar-border: 220 13% 91%;
+
+    /* Secondary */
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 9% 46%;
+
+    /* Muted */
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+
+    /* Accent */
+    --accent: 262 40% 94%;
+    --accent-foreground: 262 83% 58%;
+
+    /* Destructive */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Success */
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 100%;
+
+    /* Warning */
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+
+    /* Borders & Inputs */
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 83% 58%;
+    --radius: 0.5rem;
+
+    /* Node type colors */
+    --node-input: 220 90% 56%;
+    --node-output: 142 71% 45%;
+    --node-llm: 262 83% 58%;
+    --node-tool: 25 95% 53%;
+
+    /* Shadows */
+    --shadow-node: 0 2px 8px -2px rgba(0, 0, 0, 0.08), 0 1px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-node-selected: 0 0 0 2px hsl(262 83% 58% / 0.4), 0 4px 16px -4px rgba(0, 0, 0, 0.12);
+    --shadow-panel: -4px 0 24px -8px rgba(0, 0, 0, 0.08);
+    --shadow-nav: 0 1px 3px 0 rgba(0, 0, 0, 0.06);
+
+    /* Gradients */
+    --gradient-nav: linear-gradient(135deg, hsl(262 83% 50%), hsl(280 80% 55%), hsl(262 83% 62%));
+    --gradient-node-input: linear-gradient(135deg, hsl(220 90% 56%), hsl(220 85% 64%));
+    --gradient-node-output: linear-gradient(135deg, hsl(142 71% 42%), hsl(142 65% 52%));
+    --gradient-node-llm: linear-gradient(135deg, hsl(262 83% 54%), hsl(280 75% 62%));
+    --gradient-node-tool: linear-gradient(135deg, hsl(25 95% 50%), hsl(35 92% 58%));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  }
+}
+
+/* ReactFlow overrides */
+.react-flow__node {
+  @apply animate-node-appear;
+}
+
+.react-flow__edge-path {
+  stroke: hsl(var(--muted-foreground));
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: hsl(var(--primary));
+  stroke-width: 2.5;
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border: 2px solid hsl(var(--border));
+  background: hsl(var(--background));
+  transition: all 0.15s ease;
+}
+
+.react-flow__handle:hover {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary-muted));
+  transform: scale(1.3);
+}
+
+.react-flow__handle.connecting {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary));
+}
+
+.react-flow__background {
+  background-color: hsl(var(--canvas));
+}
+
+.react-flow__minimap {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+}
+
+.react-flow__controls {
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-node);
+}
+
+.react-flow__controls-button {
+  border-bottom: 1px solid hsl(var(--border));
+  background: hsl(var(--background));
+}
+
+.react-flow__controls-button:hover {
+  background: hsl(var(--accent));
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* Draggable node item */
+.draggable-node-item {
+  cursor: grab;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.draggable-node-item:hover {
+  background: hsl(var(--accent));
+  transform: translateX(2px);
+}
+
+.draggable-node-item:active {
+  cursor: grabbing;
+  opacity: 0.7;
+}

@@ -3,8 +3,6 @@ package com.paiagent.engine;
 import com.paiagent.engine.model.DAG;
 import com.paiagent.engine.model.DAGNode;
 import com.paiagent.entity.Workflow;
-import com.paiagent.exception.WorkflowNotFoundException;
-import com.paiagent.repository.WorkflowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -16,7 +14,6 @@ import java.util.List;
 @Slf4j
 public class WorkflowEngine {
 
-    private final WorkflowRepository workflowRepository;
     private final DAGParser dagParser;
     private final TopologicalSorter topologicalSorter;
     private final ParallelStageExecutor parallelStageExecutor;
@@ -24,17 +21,16 @@ public class WorkflowEngine {
     /**
      * Execute a workflow synchronously.
      */
-    public String execute(Long workflowId, String userInput) {
-        return execute(workflowId, userInput, null);
+    public String execute(Workflow workflow, String userInput) {
+        return execute(workflow, userInput, null);
     }
 
     /**
      * Execute a workflow with an optional listener for SSE streaming.
      */
-    public String execute(Long workflowId, String userInput,
+    public String execute(Workflow workflow, String userInput,
                           ParallelStageExecutor.StageExecutionListener listener) {
-        Workflow workflow = workflowRepository.findById(workflowId)
-                .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
+        Long workflowId = workflow.getId();
 
         log.info("Starting execution of workflow [{}] '{}'", workflowId, workflow.getName());
 

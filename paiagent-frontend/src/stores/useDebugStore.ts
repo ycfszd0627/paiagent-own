@@ -5,6 +5,7 @@ interface DebugState {
   isExecuting: boolean
   steps: ExecutionStep[]
   finalOutput: string
+  executionError: string
   audioUrl: string | null
   inputText: string
   setInputText: (text: string) => void
@@ -12,6 +13,7 @@ interface DebugState {
   addStep: (step: ExecutionStep) => void
   updateStep: (nodeId: string, update: Partial<ExecutionStep>) => void
   setFinalOutput: (output: string) => void
+  setExecutionError: (error: string) => void
   setAudioUrl: (url: string | null) => void
   finishExecution: () => void
   reset: () => void
@@ -21,13 +23,14 @@ export const useDebugStore = create<DebugState>((set, get) => ({
   isExecuting: false,
   steps: [],
   finalOutput: '',
+  executionError: '',
   audioUrl: null,
   inputText: '',
 
   setInputText: (text) => set({ inputText: text }),
 
   startExecution: () =>
-    set({ isExecuting: true, steps: [], finalOutput: '', audioUrl: null }),
+    set({ isExecuting: true, steps: [], finalOutput: '', executionError: '', audioUrl: null }),
 
   addStep: (step) => set({ steps: [...get().steps, step] }),
 
@@ -39,6 +42,7 @@ export const useDebugStore = create<DebugState>((set, get) => ({
     }),
 
   setFinalOutput: (output) => set({ finalOutput: output }),
+  setExecutionError: (error) => set({ executionError: error }),
   setAudioUrl: (url) => set({ audioUrl: url }),
   finishExecution: () => set({ isExecuting: false }),
 
@@ -47,6 +51,7 @@ export const useDebugStore = create<DebugState>((set, get) => ({
       isExecuting: false,
       steps: [],
       finalOutput: '',
+      executionError: '',
       audioUrl: null,
       inputText: '',
     }),

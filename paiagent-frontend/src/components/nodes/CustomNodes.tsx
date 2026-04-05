@@ -1,5 +1,5 @@
-import { memo } from 'react'
-import { Handle, Position, type NodeProps } from 'reactflow'
+import { memo, useEffect } from 'react'
+import { Handle, Position, type NodeProps, useUpdateNodeInternals } from 'reactflow'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/useUIStore'
 import type { WorkflowNodeData } from '@/types/workflow'
@@ -26,16 +26,62 @@ const colorClassMap: Record<string, string> = {
   TOOL: 'border-node-tool/30',
 }
 
+const handleClassMap: Record<string, string> = {
+  INPUT: '!border-node-input !bg-background',
+  OUTPUT: '!border-node-output !bg-background',
+  LLM: '!border-node-llm !bg-background',
+  TOOL: '!border-node-tool !bg-background',
+}
+
+const handleStyleTop = {
+  left: '50%',
+  top: 0,
+  right: 'auto',
+  bottom: 'auto',
+  transform: 'translate(-50%, -50%)',
+} as const
+
+const handleStyleBottom = {
+  left: '50%',
+  top: 'auto',
+  right: 'auto',
+  bottom: 0,
+  transform: 'translate(-50%, 50%)',
+} as const
+
+function HandleMarker({
+  type,
+  position,
+}: {
+  type: WorkflowNodeData['type']
+  position: 'top' | 'bottom'
+}) {
+  return (
+    <span
+      className={cn(
+        'pointer-events-none absolute z-[1] h-3 w-3 rounded-full border-2 bg-background',
+        handleClassMap[type]
+      )}
+      style={position === 'top' ? handleStyleTop : handleStyleBottom}
+    />
+  )
+}
+
 function BaseNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
+  const updateNodeInternals = useUpdateNodeInternals()
   const selectNode = useUIStore((s) => s.selectNode)
   const selectedNodeId = useUIStore((s) => s.selectedNodeId)
   const isSelected = selected || selectedNodeId === id
   const Icon = iconMap[data.type] || Brain
 
+  useEffect(() => {
+    updateNodeInternals(id)
+  }, [id, data.label, data.subtype, data.type, data.config, updateNodeInternals])
+
   return (
     <div
       className={cn(
-        'min-w-[160px] max-w-[200px] rounded-lg border-2 bg-card transition-all duration-200',
+        'relative w-[180px] rounded-lg border-2 bg-card transition-all duration-200',
         colorClassMap[data.type],
         isSelected ? 'shadow-node-selected' : 'shadow-node hover:shadow-node-selected'
       )}
@@ -55,9 +101,9 @@ function BaseNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
       {/* Body */}
       <div className="px-3 py-2">
         {data.subtype && (
-          <span className="text-[10px] text-muted-foreground">
+          <div className="text-[10px] text-muted-foreground truncate">
             {data.subtype}
-          </span>
+          </div>
         )}
         {data.type === 'LLM' && data.config.model && (
           <div className="mt-1 text-[10px] text-muted-foreground truncate">
@@ -65,26 +111,34 @@ function BaseNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
           </div>
         )}
         {data.type === 'TOOL' && (
-          <div className="mt-1 text-[10px] text-muted-foreground">
-            工具节点
+          <div className="mt-1 text-[10px] text-muted-foreground truncate">
+            模型: {String(data.config.model || 'qwen3-tts-flash')}
           </div>
         )}
       </div>
 
       {/* Handles */}
       {data.type !== 'INPUT' && (
-        <Handle
-          type="target"
-          position={Position.Top}
-          className="!border-2"
-        />
+        <>
+          <HandleMarker type={data.type} position="top" />
+          <Handle
+            type="target"
+            position={Position.Top}
+            className="!h-4 !w-4 !border-0 !bg-transparent !opacity-100"
+            style={handleStyleTop}
+          />
+        </>
       )}
       {data.type !== 'OUTPUT' && (
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          className="!border-2"
-        />
+        <>
+          <HandleMarker type={data.type} position="bottom" />
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            className="!h-4 !w-4 !border-0 !bg-transparent !opacity-100"
+            style={handleStyleBottom}
+          />
+        </>
       )}
     </div>
   )

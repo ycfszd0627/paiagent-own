@@ -37,6 +37,8 @@ public class LLMNodeExecutor implements NodeExecutor {
 
         // Build LLM request from node config
         var config = node.config();
+        String baseUrl = (String) config.getOrDefault("baseUrl", "");
+        String apiKey = (String) config.getOrDefault("apiKey", "");
         String model = (String) config.getOrDefault("model", adapter.getDefaultModel());
         String systemPrompt = (String) config.getOrDefault("systemPrompt", "");
         double temperature = config.containsKey("temperature")
@@ -46,7 +48,7 @@ public class LLMNodeExecutor implements NodeExecutor {
                 ? ((Number) config.get("maxTokens")).intValue()
                 : 2048;
 
-        LLMRequest request = new LLMRequest(model, systemPrompt, upstreamInput, temperature, maxTokens);
+        LLMRequest request = new LLMRequest(baseUrl, apiKey, model, systemPrompt, upstreamInput, temperature, maxTokens);
 
         try {
             LLMResponse response = adapter.chat(request);

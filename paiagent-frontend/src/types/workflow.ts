@@ -1,12 +1,14 @@
 export type NodeType = 'INPUT' | 'OUTPUT' | 'LLM' | 'TOOL'
 
 export interface NodeConfig {
+  baseUrl?: string
+  apiKey?: string
   model?: string
   temperature?: number
   maxTokens?: number
   systemPrompt?: string
   voice?: string
-  speed?: number
+  language_type?: string
   [key: string]: unknown
 }
 

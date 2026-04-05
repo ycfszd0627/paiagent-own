@@ -4,6 +4,8 @@ import ReactFlow, {
   Controls,
   MiniMap,
   BackgroundVariant,
+  getSmoothStepPath,
+  type ConnectionLineComponentProps,
   type ReactFlowInstance,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
@@ -12,10 +14,66 @@ import { useUIStore } from '@/stores/useUIStore'
 import { nodeTypes } from '@/components/nodes/CustomNodes'
 
 const defaultConfig: Record<string, Record<string, unknown>> = {
-  deepseek: { model: 'deepseek-chat', temperature: 0.7, maxTokens: 2048, systemPrompt: '' },
-  tongyi: { model: 'qwen-max', temperature: 0.7, maxTokens: 2048, systemPrompt: '' },
-  openai: { model: 'gpt-4o-mini', temperature: 0.7, maxTokens: 2048, systemPrompt: '' },
-  tts: { voice: 'default', speed: 1.0 },
+  deepseek: {
+    baseUrl: 'https://api.deepseek.com/v1',
+    apiKey: '',
+    model: 'deepseek-chat',
+    temperature: 0.7,
+    maxTokens: 2048,
+    systemPrompt: '',
+  },
+  tongyi: {
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    apiKey: '',
+    model: 'qwen-max',
+    temperature: 0.7,
+    maxTokens: 2048,
+    systemPrompt: '',
+  },
+  openai: {
+    baseUrl: 'https://api.openai.com/v1',
+    apiKey: '',
+    model: 'gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 2048,
+    systemPrompt: '',
+  },
+  tts: {
+    baseUrl: 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation',
+    apiKey: '',
+    model: 'qwen3-tts-flash',
+    voice: 'Cherry',
+    language_type: 'Auto',
+  },
+}
+
+function CustomConnectionLine({
+  fromX,
+  fromY,
+  toX,
+  toY,
+  fromPosition,
+  toPosition,
+}: ConnectionLineComponentProps) {
+  const [path] = getSmoothStepPath({
+    sourceX: fromX,
+    sourceY: fromY,
+    sourcePosition: fromPosition,
+    targetX: toX,
+    targetY: toY,
+    targetPosition: toPosition,
+  })
+
+  return (
+    <path
+      d={path}
+      fill="none"
+      stroke="hsl(var(--primary))"
+      strokeWidth={2}
+      strokeDasharray="6 4"
+      strokeLinecap="round"
+    />
+  )
 }
 
 export default function FlowCanvas() {
@@ -75,6 +133,7 @@ export default function FlowCanvas() {
         onDrop={onDrop}
         onPaneClick={onPaneClick}
         nodeTypes={nodeTypes}
+        connectionLineComponent={CustomConnectionLine}
         fitView
         snapToGrid
         snapGrid={[16, 16]}

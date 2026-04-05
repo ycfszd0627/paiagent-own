@@ -14,9 +14,13 @@ import java.util.Map;
 @Slf4j
 public abstract class OpenAICompatibleAdapter implements LLMAdapter {
 
+    private final String defaultBaseUrl;
+    private final String defaultApiKey;
     protected final WebClient webClient;
 
     protected OpenAICompatibleAdapter(String baseUrl, String apiKey) {
+        this.defaultBaseUrl = baseUrl;
+        this.defaultApiKey = apiKey;
         this.webClient = WebClient.builder()
                 .baseUrl(baseUrl)
                 .defaultHeader("Authorization", "Bearer " + apiKey)
@@ -42,7 +46,7 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
         log.info("Calling {} with model: {}", getProviderName(), request.model());
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> response = webClient.post()
+        Map<String, Object> response = resolveWebClient(request).post()
                 .uri("/chat/completions")
                 .bodyValue(body)
                 .retrieve()
@@ -54,6 +58,25 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
         }
 
         return parseResponse(response);
+    }
+
+    private WebClient resolveWebClient(LLMRequest request) {
+        String baseUrl = request.baseUrl() != null && !request.baseUrl().isBlank()
+                ? request.baseUrl()
+                : defaultBaseUrl;
+        String apiKey = request.apiKey() != null && !request.apiKey().isBlank()
+                ? request.apiKey()
+                : defaultApiKey;
+
+        if (baseUrl.equals(defaultBaseUrl) && apiKey.equals(defaultApiKey)) {
+            return webClient;
+        }
+
+        return WebClient.builder()
+                .baseUrl(baseUrl)
+                .defaultHeader("Authorization", "Bearer " + apiKey)
+                .defaultHeader("Content-Type", "application/json")
+                .build();
     }
 
     @SuppressWarnings("unchecked")

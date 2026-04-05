@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { X, Send, CheckCircle, AlertCircle, Loader2, Volume2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/useUIStore'
@@ -7,6 +7,18 @@ import { useFlowStore } from '@/stores/useFlowStore'
 import { useWorkflowStore } from '@/stores/useWorkflowStore'
 import type { ExecutionStep } from '@/types/workflow'
 
+function parseExecutionPayload(payload: string) {
+  try {
+    return JSON.parse(payload) as {
+      audioUrl?: string
+      audio_url?: string
+      type?: string
+    }
+  } catch {
+    return null
+  }
+}
+
 export default function DebugDrawer() {
   const isOpen = useUIStore((s) => s.isDebugDrawerOpen)
   const closeDrawer = useUIStore((s) => s.closeDebugDrawer)
@@ -14,12 +26,16 @@ export default function DebugDrawer() {
     isExecuting,
     steps,
     finalOutput,
+    executionError,
+    audioUrl,
     inputText,
     setInputText,
     startExecution,
     addStep,
     updateStep,
     setFinalOutput,
+    setAudioUrl,
+    setExecutionError,
     finishExecution,
     reset,
   } = useDebugStore()
@@ -33,65 +49,104 @@ export default function DebugDrawer() {
 
     // If we have a saved workflow, try SSE stream
     if (workflowId) {
-      const eventSource = new EventSource(
-        `/api/v1/workflows/${workflowId}/execute/stream`
-      )
-      // For POST with body we need fetch instead of EventSource
-      // Use fetch with SSE reading
       fetch(`/api/v1/workflows/${workflowId}/execute/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: inputText }),
       })
         .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Execution request failed: ${response.status}`)
+          }
+
           const reader = response.body?.getReader()
           const decoder = new TextDecoder()
           if (!reader) return
 
           let buffer = ''
+          let currentEvent = ''
+
+          const processEventBlock = (block: string) => {
+            const lines = block
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+
+            if (lines.length === 0) return
+
+            const eventLine = lines.find((line) => line.startsWith('event:'))
+            currentEvent = eventLine ? eventLine.slice(6).trim() : ''
+
+            const dataLines = lines
+              .filter((line) => line.startsWith('data:'))
+              .map((line) => line.slice(5).trim())
+
+            if (dataLines.length === 0) return
+
+            try {
+              const data = JSON.parse(dataLines.join('\n'))
+
+              if (data.status === 'RUNNING') {
+                addStep({
+                  nodeId: data.nodeId,
+                  label: data.label,
+                  status: 'RUNNING',
+                })
+              } else if (data.status === 'SUCCESS' && data.durationMs !== undefined && data.nodeId) {
+                updateStep(data.nodeId, {
+                  status: 'SUCCESS',
+                  output: data.output,
+                  durationMs: data.durationMs,
+                })
+              } else if (data.status === 'FAILED') {
+                if (data.nodeId) {
+                  updateStep(data.nodeId, {
+                    status: 'FAILED',
+                    error: data.error,
+                  })
+                }
+              }
+
+              if (data.finalOutput) {
+                setFinalOutput(data.finalOutput)
+                const parsedPayload = parseExecutionPayload(data.finalOutput)
+                const nextAudioUrl = parsedPayload?.audioUrl || parsedPayload?.audio_url || null
+                setAudioUrl(nextAudioUrl)
+              }
+
+              if (currentEvent === 'workflow-error' && data.error) {
+                setExecutionError(data.error)
+              }
+            } catch {
+              // Ignore malformed SSE payloads and continue reading.
+            }
+          }
+
           while (true) {
             const { done, value } = await reader.read()
             if (done) break
             buffer += decoder.decode(value, { stream: true })
 
-            const lines = buffer.split('\n')
-            buffer = lines.pop() || ''
+            const chunks = buffer.split('\n\n')
+            buffer = chunks.pop() || ''
 
-            for (const line of lines) {
-              if (line.startsWith('data:')) {
-                try {
-                  const data = JSON.parse(line.slice(5))
-                  if (data.status === 'RUNNING') {
-                    addStep({
-                      nodeId: data.nodeId,
-                      label: data.label,
-                      status: 'RUNNING',
-                    })
-                  } else if (data.status === 'SUCCESS' && data.durationMs !== undefined) {
-                    updateStep(data.nodeId, {
-                      status: 'SUCCESS',
-                      output: data.output,
-                      durationMs: data.durationMs,
-                    })
-                  } else if (data.status === 'FAILED') {
-                    updateStep(data.nodeId, {
-                      status: 'FAILED',
-                      error: data.error,
-                    })
-                  }
-                  if (data.finalOutput) {
-                    setFinalOutput(data.finalOutput)
-                  }
-                } catch {}
-              }
+            for (const chunk of chunks) {
+              processEventBlock(chunk)
             }
           }
+
+          if (buffer.trim()) {
+            processEventBlock(buffer)
+          }
+
           finishExecution()
         })
-        .catch(() => {
+        .catch((error: unknown) => {
+          setExecutionError(
+            error instanceof Error ? error.message : '执行请求失败'
+          )
           finishExecution()
         })
-      eventSource.close()
       return
     }
 
@@ -123,7 +178,7 @@ export default function DebugDrawer() {
     runNext()
   }, [
     inputText, isExecuting, workflowId, nodes,
-    startExecution, addStep, updateStep, setFinalOutput, finishExecution,
+    startExecution, addStep, updateStep, setFinalOutput, setAudioUrl, setExecutionError, finishExecution,
   ])
 
   if (!isOpen) return null
@@ -197,8 +252,31 @@ export default function DebugDrawer() {
             </div>
           )}
 
+          {executionError && (
+            <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 p-3">
+              <h4 className="mb-2 text-xs font-semibold text-destructive">
+                执行错误
+              </h4>
+              <p className="text-sm text-destructive whitespace-pre-wrap break-words">
+                {executionError}
+              </p>
+            </div>
+          )}
+
+          {audioUrl && !executionError && (
+            <div className="mt-4 rounded-md border border-border bg-background p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <Volume2 className="h-3.5 w-3.5" />
+                语音播放
+              </div>
+              <audio controls className="w-full" src={audioUrl}>
+                您的浏览器不支持音频播放。
+              </audio>
+            </div>
+          )}
+
           {/* Final Output */}
-          {finalOutput && (
+          {finalOutput && !executionError && (
             <div className="mt-4 rounded-md border border-border bg-muted/50 p-3">
               <h4 className="text-xs font-semibold text-muted-foreground mb-2">
                 输出结果
@@ -227,6 +305,9 @@ export default function DebugDrawer() {
 }
 
 function StepItem({ step }: { step: ExecutionStep }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasLongOutput = Boolean(step.output && step.output.length > 140)
+
   return (
     <div className="flex items-start gap-3">
       <div className="mt-0.5">
@@ -253,9 +334,22 @@ function StepItem({ step }: { step: ExecutionStep }) {
           )}
         </div>
         {step.output && (
-          <p className="mt-1 text-xs text-muted-foreground truncate">
-            {step.output}
-          </p>
+          <div className="mt-1">
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words">
+              {expanded || !hasLongOutput
+                ? step.output
+                : `${step.output.slice(0, 140)}...`}
+            </p>
+            {hasLongOutput && (
+              <button
+                type="button"
+                onClick={() => setExpanded((prev) => !prev)}
+                className="mt-1 text-[10px] font-medium text-primary hover:text-primary/80 transition-colors"
+              >
+                {expanded ? '收起' : '展开完整输出'}
+              </button>
+            )}
+          </div>
         )}
         {step.error && (
           <p className="mt-1 text-xs text-destructive">{step.error}</p>

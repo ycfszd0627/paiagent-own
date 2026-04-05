@@ -27,8 +27,32 @@ interface FlowState {
   clearAll: () => void
 }
 
+// Initial nodes with default INPUT and OUTPUT nodes
+const initialNodes: Node<WorkflowNodeData>[] = [
+  {
+    id: 'input-node',
+    type: 'inputNode',
+    position: { x: 100, y: 100 },
+    data: {
+      label: '输入',
+      type: 'INPUT',
+      config: {},
+    },
+  },
+  {
+    id: 'output-node',
+    type: 'outputNode',
+    position: { x: 500, y: 100 },
+    data: {
+      label: '输出',
+      type: 'OUTPUT',
+      config: {},
+    },
+  },
+]
+
 export const useFlowStore = create<FlowState>((set, get) => ({
-  nodes: [],
+  nodes: initialNodes,
   edges: [],
 
   onNodesChange: (changes) => {
@@ -79,5 +103,5 @@ export const useFlowStore = create<FlowState>((set, get) => ({
   setNodes: (nodes) => set({ nodes }),
   setEdges: (edges) => set({ edges }),
 
-  clearAll: () => set({ nodes: [], edges: [] }),
+  clearAll: () => set({ nodes: initialNodes, edges: [] }),
 }))

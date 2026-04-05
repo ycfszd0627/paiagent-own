@@ -13,7 +13,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
@@ -21,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
 @RequiredArgsConstructor
@@ -32,9 +35,17 @@ public class ExecutionService {
     private final ExecutionLogRepository executionLogRepository;
     private final ObjectMapper objectMapper;
 
-    public ExecutionResponse executeSync(Long workflowId, WorkflowExecuteRequest request) {
+    @Transactional(readOnly = true)
+    protected Workflow loadWorkflowForExecution(Long workflowId) {
         Workflow workflow = workflowRepository.findById(workflowId)
                 .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
+        Hibernate.initialize(workflow.getNodes());
+        Hibernate.initialize(workflow.getEdges());
+        return workflow;
+    }
+
+    public ExecutionResponse executeSync(Long workflowId, WorkflowExecuteRequest request) {
+        Workflow workflow = loadWorkflowForExecution(workflowId);
 
         ExecutionLog execLog = new ExecutionLog();
         execLog.setWorkflow(workflow);
@@ -44,7 +55,7 @@ public class ExecutionService {
 
         long startTime = System.currentTimeMillis();
         try {
-            String output = workflowEngine.execute(workflowId, request.input());
+            String output = workflowEngine.execute(workflow, request.input());
             execLog.setStatus("SUCCESS");
             execLog.setOutputData(output);
             execLog.setDurationMs(System.currentTimeMillis() - startTime);
@@ -63,10 +74,20 @@ public class ExecutionService {
     }
 
     public SseEmitter executeStream(Long workflowId, WorkflowExecuteRequest request) {
-        SseEmitter emitter = new SseEmitter(300_000L); // 5 min timeout
+        SseEmitter emitter = new SseEmitter(360_000L); // 6 min timeout
+        AtomicBoolean emitterClosed = new AtomicBoolean(false);
 
-        Workflow workflow = workflowRepository.findById(workflowId)
-                .orElseThrow(() -> new WorkflowNotFoundException(workflowId));
+        emitter.onCompletion(() -> emitterClosed.set(true));
+        emitter.onTimeout(() -> {
+            emitterClosed.set(true);
+            log.warn("SSE emitter timed out for workflow [{}]", workflowId);
+        });
+        emitter.onError(ex -> {
+            emitterClosed.set(true);
+            log.warn("SSE emitter error for workflow [{}]: {}", workflowId, ex.getMessage());
+        });
+
+        Workflow workflow = loadWorkflowForExecution(workflowId);
 
         ExecutionLog execLog = new ExecutionLog();
         execLog.setWorkflow(workflow);
@@ -81,7 +102,7 @@ public class ExecutionService {
             ParallelStageExecutor.StageExecutionListener listener = new ParallelStageExecutor.StageExecutionListener() {
                 @Override
                 public void onNodeStart(String nodeId, String label) {
-                    sendEvent(emitter, "node-start", Map.of(
+                    sendEvent(emitter, emitterClosed, "node-start", Map.of(
                             "nodeId", nodeId, "label", label, "status", "RUNNING"
                     ));
                 }
@@ -89,8 +110,8 @@ public class ExecutionService {
                 @Override
                 public void onNodeComplete(String nodeId, String label, String output, long durationMs) {
                     steps.add(Map.of("nodeId", nodeId, "label", label, "status", "SUCCESS", "durationMs", durationMs));
-                    sendEvent(emitter, "node-complete", Map.of(
-                            "nodeId", nodeId, "label", label, "output", truncate(output, 500),
+                    sendEvent(emitter, emitterClosed, "node-complete", Map.of(
+                            "nodeId", nodeId, "label", label, "output", output,
                             "durationMs", durationMs, "status", "SUCCESS"
                     ));
                 }
@@ -98,14 +119,14 @@ public class ExecutionService {
                 @Override
                 public void onNodeError(String nodeId, String label, String error) {
                     steps.add(Map.of("nodeId", nodeId, "label", label, "status", "FAILED", "error", error));
-                    sendEvent(emitter, "node-error", Map.of(
+                    sendEvent(emitter, emitterClosed, "node-error", Map.of(
                             "nodeId", nodeId, "label", label, "error", error, "status", "FAILED"
                     ));
                 }
             };
 
             try {
-                String output = workflowEngine.execute(workflowId, request.input(), listener);
+                String output = workflowEngine.execute(workflow, request.input(), listener);
                 long duration = System.currentTimeMillis() - startTime;
 
                 savedLog.setStatus("SUCCESS");
@@ -115,10 +136,12 @@ public class ExecutionService {
                 savedLog.setFinishedAt(LocalDateTime.now());
                 executionLogRepository.save(savedLog);
 
-                sendEvent(emitter, "workflow-complete", Map.of(
+                sendEvent(emitter, emitterClosed, "workflow-complete", Map.of(
                         "finalOutput", output, "durationMs", duration, "status", "SUCCESS"
                 ));
-                emitter.complete();
+                if (emitterClosed.compareAndSet(false, true)) {
+                    emitter.complete();
+                }
             } catch (Exception e) {
                 long duration = System.currentTimeMillis() - startTime;
                 savedLog.setStatus("FAILED");
@@ -128,11 +151,13 @@ public class ExecutionService {
                 savedLog.setFinishedAt(LocalDateTime.now());
                 executionLogRepository.save(savedLog);
 
-                sendEvent(emitter, "workflow-error", Map.of(
+                sendEvent(emitter, emitterClosed, "workflow-error", Map.of(
                         "error", e.getMessage() != null ? e.getMessage() : "Unknown error",
                         "status", "FAILED"
                 ));
-                emitter.completeWithError(e);
+                if (emitterClosed.compareAndSet(false, true)) {
+                    emitter.complete();
+                }
             }
         });
 
@@ -145,12 +170,16 @@ public class ExecutionService {
                 .toList();
     }
 
-    private void sendEvent(SseEmitter emitter, String eventName, Map<String, Object> data) {
+    private void sendEvent(SseEmitter emitter, AtomicBoolean emitterClosed, String eventName, Map<String, Object> data) {
+        if (emitterClosed.get()) {
+            return;
+        }
         try {
             emitter.send(SseEmitter.event()
                     .name(eventName)
                     .data(toJson(data)));
-        } catch (IOException e) {
+        } catch (IOException | IllegalStateException e) {
+            emitterClosed.set(true);
             log.warn("Failed to send SSE event '{}': {}", eventName, e.getMessage());
         }
     }
@@ -176,11 +205,5 @@ public class ExecutionService {
         } catch (JsonProcessingException e) {
             return "{}";
         }
-    }
-
-    private String truncate(String text, int maxLen) {
-        if (text == null) return "";
-        if (text.length() <= maxLen) return text;
-        return text.substring(0, maxLen) + "...";
     }
 }

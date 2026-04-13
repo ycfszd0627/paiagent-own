@@ -71,7 +71,12 @@ export const useFlowStore = create<FlowState>((set, get) => ({
     const id = `node-${nanoid(8)}`
     const newNode: Node<WorkflowNodeData> = {
       id,
-      type: type === 'INPUT' ? 'inputNode' : type === 'OUTPUT' ? 'outputNode' : type === 'LLM' ? 'llmNode' : 'toolNode',
+      type:
+        type === 'INPUT' ? 'inputNode'
+        : type === 'OUTPUT' ? 'outputNode'
+        : type === 'LLM' ? 'llmNode'
+        : type === 'CONDITION' ? 'conditionNode'
+        : 'toolNode',
       position,
       data: {
         label,

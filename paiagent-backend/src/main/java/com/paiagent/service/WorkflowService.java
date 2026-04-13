@@ -2,6 +2,7 @@ package com.paiagent.service;
 
 import com.paiagent.dto.request.WorkflowSaveRequest;
 import com.paiagent.dto.response.WorkflowResponse;
+import com.paiagent.engine.WorkflowFrameworkType;
 import com.paiagent.entity.Workflow;
 import com.paiagent.entity.WorkflowEdge;
 import com.paiagent.entity.WorkflowNode;
@@ -66,6 +67,7 @@ public class WorkflowService {
     private void applyRequest(Workflow workflow, WorkflowSaveRequest request) {
         workflow.setName(request.name());
         workflow.setDescription(request.description());
+        workflow.setFrameworkType(WorkflowFrameworkType.normalize(request.frameworkType()));
         workflow.setCanvasJson(toJson(request.canvasState()));
 
         if (request.nodes() != null) {
@@ -126,6 +128,7 @@ public class WorkflowService {
                 workflow.getName(),
                 workflow.getDescription(),
                 workflow.getStatus(),
+                WorkflowFrameworkType.normalize(workflow.getFrameworkType()),
                 parseJson(workflow.getCanvasJson()),
                 nodes,
                 edges,

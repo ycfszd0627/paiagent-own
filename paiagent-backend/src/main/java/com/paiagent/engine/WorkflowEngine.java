@@ -12,15 +12,21 @@ import java.util.List;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-public class WorkflowEngine {
+public class WorkflowEngine implements WorkflowExecutionEngine {
 
     private final DAGParser dagParser;
     private final TopologicalSorter topologicalSorter;
     private final ParallelStageExecutor parallelStageExecutor;
 
+    @Override
+    public String getFrameworkType() {
+        return WorkflowFrameworkType.DAG;
+    }
+
     /**
      * Execute a workflow synchronously.
      */
+    @Override
     public String execute(Workflow workflow, String userInput) {
         return execute(workflow, userInput, null);
     }
@@ -28,6 +34,7 @@ public class WorkflowEngine {
     /**
      * Execute a workflow with an optional listener for SSE streaming.
      */
+    @Override
     public String execute(Workflow workflow, String userInput,
                           ParallelStageExecutor.StageExecutionListener listener) {
         Long workflowId = workflow.getId();
@@ -36,6 +43,16 @@ public class WorkflowEngine {
 
         // 1. Parse into DAG
         DAG dag = dagParser.parse(workflow.getNodes(), workflow.getEdges());
+
+        dag.getAllNodes().stream()
+                .filter(node -> "CONDITION".equals(node.nodeType()))
+                .filter(node -> dag.getSuccessors(node.nodeId()).size() > 1)
+                .findFirst()
+                .ifPresent(node -> {
+                    throw new IllegalStateException(
+                            "CONDITION nodes with multiple branches require LANGGRAPH4J framework: " + node.label()
+                    );
+                });
 
         // 2. Topological sort
         ExecutionPlan plan = topologicalSorter.sort(dag);

@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react'
-import { ChevronDown, ChevronRight, Brain, Wrench, GripVertical } from 'lucide-react'
+import { ChevronDown, ChevronRight, Brain, Wrench, GripVertical, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface NodeItem {
@@ -17,6 +17,10 @@ const llmNodes: NodeItem[] = [
 
 const toolNodes: NodeItem[] = [
   { type: 'TOOL', subtype: 'tts', label: '超拟人音频合成', icon: <Wrench className="h-3.5 w-3.5" /> },
+]
+
+const logicNodes: NodeItem[] = [
+  { type: 'CONDITION', subtype: 'condition', label: '条件分支', icon: <GitBranch className="h-3.5 w-3.5" /> },
 ]
 
 function NodeCategory({
@@ -91,6 +95,11 @@ export default function NodeLibrary() {
           title="工具节点"
           icon={<Wrench className="h-3.5 w-3.5 text-node-tool" />}
           items={toolNodes}
+        />
+        <NodeCategory
+          title="逻辑节点"
+          icon={<GitBranch className="h-3.5 w-3.5 text-node-output" />}
+          items={logicNodes}
         />
       </div>
 

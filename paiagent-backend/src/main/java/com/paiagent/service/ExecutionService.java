@@ -3,7 +3,8 @@ package com.paiagent.service;
 import com.paiagent.dto.request.WorkflowExecuteRequest;
 import com.paiagent.dto.response.ExecutionResponse;
 import com.paiagent.engine.ParallelStageExecutor;
-import com.paiagent.engine.WorkflowEngine;
+import com.paiagent.engine.WorkflowExecutionEngine;
+import com.paiagent.engine.WorkflowExecutionEngineRegistry;
 import com.paiagent.entity.ExecutionLog;
 import com.paiagent.entity.Workflow;
 import com.paiagent.exception.WorkflowNotFoundException;
@@ -30,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Slf4j
 public class ExecutionService {
 
-    private final WorkflowEngine workflowEngine;
+    private final WorkflowExecutionEngineRegistry workflowExecutionEngineRegistry;
     private final WorkflowRepository workflowRepository;
     private final ExecutionLogRepository executionLogRepository;
     private final ObjectMapper objectMapper;
@@ -46,6 +47,7 @@ public class ExecutionService {
 
     public ExecutionResponse executeSync(Long workflowId, WorkflowExecuteRequest request) {
         Workflow workflow = loadWorkflowForExecution(workflowId);
+        WorkflowExecutionEngine workflowEngine = workflowExecutionEngineRegistry.getEngine(workflow.getFrameworkType());
 
         ExecutionLog execLog = new ExecutionLog();
         execLog.setWorkflow(workflow);
@@ -88,6 +90,7 @@ public class ExecutionService {
         });
 
         Workflow workflow = loadWorkflowForExecution(workflowId);
+        WorkflowExecutionEngine workflowEngine = workflowExecutionEngineRegistry.getEngine(workflow.getFrameworkType());
 
         ExecutionLog execLog = new ExecutionLog();
         execLog.setWorkflow(workflow);

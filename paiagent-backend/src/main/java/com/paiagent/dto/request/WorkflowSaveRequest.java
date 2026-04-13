@@ -7,6 +7,7 @@ import java.util.Map;
 public record WorkflowSaveRequest(
         @NotBlank String name,
         String description,
+        String frameworkType,
         Map<String, Object> canvasState,
         List<NodeDTO> nodes,
         List<EdgeDTO> edges

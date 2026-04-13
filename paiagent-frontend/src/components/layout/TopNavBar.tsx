@@ -7,12 +7,20 @@ import { useFlowStore } from '@/stores/useFlowStore'
 import { useUIStore } from '@/stores/useUIStore'
 import { useWorkflowStore } from '@/stores/useWorkflowStore'
 import { workflowApi } from '@/api/workflowApi'
-import type { WorkflowDTO, WorkflowNodeData } from '@/types/workflow'
+import type { WorkflowDTO, WorkflowFrameworkType, WorkflowNodeData } from '@/types/workflow'
 
 export default function TopNavBar() {
   const toggleDebug = useUIStore((s) => s.toggleDebugDrawer)
   const { nodes, edges, clearAll, setNodes, setEdges } = useFlowStore()
-  const { workflowId, workflowName, setWorkflow, setWorkflowName, reset: resetWorkflow } = useWorkflowStore()
+  const {
+    workflowId,
+    workflowName,
+    workflowFrameworkType,
+    setWorkflow,
+    setWorkflowName,
+    setWorkflowFrameworkType,
+    reset: resetWorkflow,
+  } = useWorkflowStore()
   const [saving, setSaving] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
   const [workflows, setWorkflows] = useState<WorkflowDTO[]>([])
@@ -27,6 +35,7 @@ export default function TopNavBar() {
     try {
       const payload: WorkflowDTO = {
         name: workflowName,
+        frameworkType: workflowFrameworkType,
         nodes: nodes.map((n) => ({
           nodeId: n.id,
           type: (n.data as WorkflowNodeData).type,
@@ -51,14 +60,14 @@ export default function TopNavBar() {
         result = await workflowApi.create(payload)
       }
       if (result.id) {
-        setWorkflow(result.id, result.name, result.description)
+        setWorkflow(result.id, result.name, result.description, result.frameworkType || 'DAG')
       }
     } catch (err) {
       console.error('Save failed:', err)
     } finally {
       setSaving(false)
     }
-  }, [workflowId, workflowName, nodes, edges, setWorkflow])
+  }, [workflowId, workflowName, workflowFrameworkType, nodes, edges, setWorkflow])
 
   const handleLoad = useCallback(async () => {
     try {
@@ -74,7 +83,7 @@ export default function TopNavBar() {
     async (id: number) => {
       try {
         const wf = await workflowApi.get(id)
-        setWorkflow(wf.id!, wf.name, wf.description)
+        setWorkflow(wf.id!, wf.name, wf.description, wf.frameworkType || 'DAG')
 
         const flowNodes = wf.nodes.map((n) => ({
           id: n.nodeId,
@@ -82,6 +91,7 @@ export default function TopNavBar() {
             n.type === 'INPUT' ? 'inputNode'
             : n.type === 'OUTPUT' ? 'outputNode'
             : n.type === 'LLM' ? 'llmNode'
+            : n.type === 'CONDITION' ? 'conditionNode'
             : 'toolNode',
           position: n.position,
           data: {
@@ -127,6 +137,15 @@ export default function TopNavBar() {
             </span>
           </div>
           <div className="h-5 w-px bg-primary-foreground/20" />
+          <select
+            value={workflowFrameworkType}
+            onChange={(e) => setWorkflowFrameworkType(e.target.value as WorkflowFrameworkType)}
+            className="rounded-md border border-primary-foreground/20 bg-primary-foreground/10 px-2 py-1 text-xs text-primary-foreground outline-none transition-colors hover:bg-primary-foreground/15"
+            title="选择工作流执行框架"
+          >
+            <option value="DAG" className="text-foreground">DAG</option>
+            <option value="LANGGRAPH4J" className="text-foreground">LangGraph4j</option>
+          </select>
           <input
             type="text"
             value={workflowName}
@@ -198,7 +217,7 @@ export default function TopNavBar() {
                         </div>
                       )}
                       <div className="mt-1 text-[10px] text-muted-foreground">
-                        {wf.nodes?.length || 0} 节点 · {wf.edges?.length || 0} 连线
+                        {(wf.frameworkType || 'DAG')} · {wf.nodes?.length || 0} 节点 · {wf.edges?.length || 0} 连线
                       </div>
                     </button>
                   ))}

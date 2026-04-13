@@ -29,6 +29,9 @@ public class Workflow {
     @Column(nullable = false, length = 20)
     private String status = "DRAFT";
 
+    @Column(name = "framework_type", nullable = false, length = 30)
+    private String frameworkType = "DAG";
+
     @Column(name = "canvas_json", columnDefinition = "JSON")
     private String canvasJson;
 

@@ -9,6 +9,7 @@ public record WorkflowResponse(
         String name,
         String description,
         String status,
+        String frameworkType,
         Map<String, Object> canvasState,
         List<NodeDTO> nodes,
         List<EdgeDTO> edges,

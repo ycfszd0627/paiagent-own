@@ -30,6 +30,13 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
 
     @Override
     public LLMResponse chat(LLMRequest request) {
+        String resolvedBaseUrl = request.baseUrl() != null && !request.baseUrl().isBlank()
+                ? request.baseUrl()
+                : defaultBaseUrl;
+        String resolvedApiKey = request.apiKey() != null && !request.apiKey().isBlank()
+                ? request.apiKey()
+                : defaultApiKey;
+
         List<Map<String, String>> messages = new ArrayList<>();
         if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
             messages.add(Map.of("role", "system", "content", request.systemPrompt()));
@@ -43,10 +50,20 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
                 "max_tokens", request.maxTokens()
         );
 
-        log.info("Calling {} with model: {}", getProviderName(), request.model());
+        log.info(
+                "LLM request -> provider={}, baseUrl={}, model={}, temperature={}, maxTokens={}, apiKey={}, systemPrompt={}, userMessage={}",
+                getProviderName(),
+                resolvedBaseUrl,
+                request.model(),
+                request.temperature(),
+                request.maxTokens(),
+                maskApiKey(resolvedApiKey),
+                truncate(request.systemPrompt(), 2000),
+                truncate(request.userMessage(), 4000)
+        );
 
         @SuppressWarnings("unchecked")
-        Map<String, Object> response = resolveWebClient(request).post()
+        Map<String, Object> response = resolveWebClient(resolvedBaseUrl, resolvedApiKey).post()
                 .uri("/chat/completions")
                 .bodyValue(body)
                 .retrieve()
@@ -57,17 +74,20 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
             throw new RuntimeException("Empty response from " + getProviderName());
         }
 
-        return parseResponse(response);
+        LLMResponse parsedResponse = parseResponse(response);
+        log.info(
+                "LLM response <- provider={}, model={}, promptTokens={}, completionTokens={}, content={}",
+                getProviderName(),
+                parsedResponse.model(),
+                parsedResponse.promptTokens(),
+                parsedResponse.completionTokens(),
+                truncate(parsedResponse.content(), 4000)
+        );
+
+        return parsedResponse;
     }
 
-    private WebClient resolveWebClient(LLMRequest request) {
-        String baseUrl = request.baseUrl() != null && !request.baseUrl().isBlank()
-                ? request.baseUrl()
-                : defaultBaseUrl;
-        String apiKey = request.apiKey() != null && !request.apiKey().isBlank()
-                ? request.apiKey()
-                : defaultApiKey;
-
+    private WebClient resolveWebClient(String baseUrl, String apiKey) {
         if (baseUrl.equals(defaultBaseUrl) && apiKey.equals(defaultApiKey)) {
             return webClient;
         }
@@ -77,6 +97,26 @@ public abstract class OpenAICompatibleAdapter implements LLMAdapter {
                 .defaultHeader("Authorization", "Bearer " + apiKey)
                 .defaultHeader("Content-Type", "application/json")
                 .build();
+    }
+
+    private String maskApiKey(String apiKey) {
+        if (apiKey == null || apiKey.isBlank()) {
+            return "<empty>";
+        }
+        if (apiKey.length() <= 8) {
+            return "***";
+        }
+        return apiKey.substring(0, 4) + "***" + apiKey.substring(apiKey.length() - 4);
+    }
+
+    private String truncate(String text, int maxLength) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() <= maxLength) {
+            return text;
+        }
+        return text.substring(0, maxLength) + "...(truncated)";
     }
 
     @SuppressWarnings("unchecked")

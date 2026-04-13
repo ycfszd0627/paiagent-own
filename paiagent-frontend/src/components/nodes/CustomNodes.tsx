@@ -3,13 +3,14 @@ import { Handle, Position, type NodeProps, useUpdateNodeInternals } from 'reactf
 import { cn } from '@/lib/utils'
 import { useUIStore } from '@/stores/useUIStore'
 import type { WorkflowNodeData } from '@/types/workflow'
-import { LogIn, LogOut, Brain, Wrench } from 'lucide-react'
+import { LogIn, LogOut, Brain, Wrench, GitBranch } from 'lucide-react'
 
 const iconMap = {
   INPUT: LogIn,
   OUTPUT: LogOut,
   LLM: Brain,
   TOOL: Wrench,
+  CONDITION: GitBranch,
 }
 
 const gradientMap: Record<string, string> = {
@@ -17,6 +18,7 @@ const gradientMap: Record<string, string> = {
   OUTPUT: 'var(--gradient-node-output)',
   LLM: 'var(--gradient-node-llm)',
   TOOL: 'var(--gradient-node-tool)',
+  CONDITION: 'var(--gradient-node-output)',
 }
 
 const colorClassMap: Record<string, string> = {
@@ -24,6 +26,7 @@ const colorClassMap: Record<string, string> = {
   OUTPUT: 'border-node-output/30',
   LLM: 'border-node-llm/30',
   TOOL: 'border-node-tool/30',
+  CONDITION: 'border-node-output/30',
 }
 
 const handleClassMap: Record<string, string> = {
@@ -31,6 +34,7 @@ const handleClassMap: Record<string, string> = {
   OUTPUT: '!border-node-output !bg-background',
   LLM: '!border-node-llm !bg-background',
   TOOL: '!border-node-tool !bg-background',
+  CONDITION: '!border-node-output !bg-background',
 }
 
 const handleStyleTop = {
@@ -115,6 +119,11 @@ function BaseNode({ id, data, selected }: NodeProps<WorkflowNodeData>) {
             模型: {String(data.config.model || 'qwen3-tts-flash')}
           </div>
         )}
+        {data.type === 'CONDITION' && (
+          <div className="mt-1 text-[10px] text-muted-foreground truncate">
+            条件数: {Array.isArray(data.config.conditionRules) ? data.config.conditionRules.length : 0}
+          </div>
+        )}
       </div>
 
       {/* Handles */}
@@ -164,9 +173,15 @@ export const ToolNode = memo((props: NodeProps<WorkflowNodeData>) => (
 ))
 ToolNode.displayName = 'ToolNode'
 
+export const ConditionNode = memo((props: NodeProps<WorkflowNodeData>) => (
+  <BaseNode {...props} />
+))
+ConditionNode.displayName = 'ConditionNode'
+
 export const nodeTypes = {
   inputNode: InputNode,
   outputNode: OutputNode,
   llmNode: LLMNode,
   toolNode: ToolNode,
+  conditionNode: ConditionNode,
 }

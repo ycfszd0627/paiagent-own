@@ -25,25 +25,35 @@ public class NodeTypeRegistryService {
                 ),
                 new NodeTypeResponse(
                         "LLM", "deepseek", "DeepSeek", "大模型节点", "robot",
-                        Map.of("model", "deepseek-chat", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", ""),
+                        Map.of("model", "deepseek-chat", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", "", "outputMode", "text", "outputParams", List.of(), "additionalInputs", List.of()),
                         List.of(new NodeTypeResponse.PortDef("default", "输入")),
                         List.of(new NodeTypeResponse.PortDef("default", "输出"))
                 ),
                 new NodeTypeResponse(
                         "LLM", "tongyi", "通义千问", "大模型节点", "cloud",
-                        Map.of("model", "qwen-max", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", ""),
+                        Map.of("model", "qwen-max", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", "", "outputMode", "text", "outputParams", List.of(), "additionalInputs", List.of()),
                         List.of(new NodeTypeResponse.PortDef("default", "输入")),
                         List.of(new NodeTypeResponse.PortDef("default", "输出"))
                 ),
                 new NodeTypeResponse(
                         "LLM", "openai", "OpenAI", "大模型节点", "openai",
-                        Map.of("model", "gpt-4o-mini", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", ""),
+                        Map.of("model", "gpt-4o-mini", "temperature", 0.7, "maxTokens", 2048, "systemPrompt", "", "outputMode", "text", "outputParams", List.of(), "additionalInputs", List.of()),
                         List.of(new NodeTypeResponse.PortDef("default", "输入")),
                         List.of(new NodeTypeResponse.PortDef("default", "输出"))
                 ),
                 new NodeTypeResponse(
                         "TOOL", "tts", "超拟人音频合成", "工具节点", "sound",
                         Map.of("voice", "default", "speed", 1.0),
+                        List.of(new NodeTypeResponse.PortDef("default", "输入")),
+                        List.of(new NodeTypeResponse.PortDef("default", "输出"))
+                ),
+                new NodeTypeResponse(
+                        "CONDITION", null, "条件分支", "逻辑节点", "git-branch",
+                        Map.of(
+                                "conditionRules", List.of(),
+                                "defaultNextNodeId", "",
+                                "defaultOutputVariablePath", ""
+                        ),
                         List.of(new NodeTypeResponse.PortDef("default", "输入")),
                         List.of(new NodeTypeResponse.PortDef("default", "输出"))
                 )

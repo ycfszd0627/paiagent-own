@@ -1,4 +1,52 @@
-export type NodeType = 'INPUT' | 'OUTPUT' | 'LLM' | 'TOOL'
+export type NodeType = 'INPUT' | 'OUTPUT' | 'LLM' | 'TOOL' | 'CONDITION'
+export type WorkflowFrameworkType = 'DAG' | 'LANGGRAPH4J'
+export type LangGraphRouteMatchType = 'contains' | 'equals' | 'regex'
+export type LLMOutputMode = 'text' | 'json'
+export type ConditionOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'regex'
+  | 'less_than'
+  | 'less_or_equal'
+  | 'greater_than'
+  | 'greater_or_equal'
+  | 'exists'
+  | 'not_exists'
+
+export interface LangGraphRouteRule {
+  id: string
+  matchType: LangGraphRouteMatchType
+  matchValue: string
+  nextNodeId: string
+}
+
+export interface LangGraphRoutingConfig {
+  defaultNextNodeId?: string
+  rules: LangGraphRouteRule[]
+}
+
+export interface ConditionRule {
+  id: string
+  variablePath: string
+  operator: ConditionOperator
+  compareValue?: string
+  nextNodeId: string
+  outputVariablePath?: string
+}
+
+export interface LLMOutputParam {
+  id: string
+  name: string
+  jsonPath?: string
+  description?: string
+}
+
+export interface LLMAdditionalInput {
+  id: string
+  variablePath: string
+  label?: string
+}
 
 export interface NodeConfig {
   baseUrl?: string
@@ -7,8 +55,15 @@ export interface NodeConfig {
   temperature?: number
   maxTokens?: number
   systemPrompt?: string
+  outputMode?: LLMOutputMode
+  outputParams?: LLMOutputParam[]
+  additionalInputs?: LLMAdditionalInput[]
   voice?: string
   language_type?: string
+  langGraphRouting?: LangGraphRoutingConfig
+  conditionRules?: ConditionRule[]
+  defaultNextNodeId?: string
+  defaultOutputVariablePath?: string
   [key: string]: unknown
 }
 
@@ -24,6 +79,7 @@ export interface WorkflowDTO {
   name: string
   description?: string
   status?: string
+  frameworkType?: WorkflowFrameworkType
   canvasState?: Record<string, unknown>
   nodes: {
     nodeId: string
